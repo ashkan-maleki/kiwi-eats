@@ -1,0 +1,108 @@
+syntax = "proto3";
+package auth;
+option go_package = "github.com/ashkan-maleki/kiwi-eats/internal/auth";
+
+import "third_party/google/api/annotations.proto";
+
+// Common Messages
+message Status {
+  int32 code = 1;
+  string message = 2;
+}
+
+// --- Register ---
+message RegisterRequest {
+  string name = 1;
+  string email = 2;
+  string password = 3;
+}
+
+message RegisterResponse {
+  string user_id = 1;
+  Status status = 2;
+}
+
+// --- Login ---
+message LoginRequest {
+  string email = 1;
+  string password = 2;
+}
+
+message LoginResponse {
+  string jwt_token = 1;
+  string refresh_token = 2;
+  string user_id = 3;
+  string name = 4;
+  int64 expires_at = 5;
+}
+
+// --- Token Validation ---
+message ValidateTokenRequest {
+  string token = 1;
+}
+
+message ValidateTokenResponse {
+  bool is_valid = 1;
+  string user_id = 2;
+  int64 expires_at = 3;
+  repeated string roles = 4; // Optional RBAC
+}
+
+// --- Token Refresh ---
+message RefreshTokenRequest {
+  string refresh_token = 1;
+}
+
+message RefreshTokenResponse {
+  string jwt_token = 1;
+  string refresh_token = 2;
+  int64 expires_at = 3;
+}
+
+// --- Logout ---
+message LogoutRequest {
+  string user_id = 1;
+  string token = 2; // Optional for token revocation
+}
+
+message LogoutResponse {
+  Status status = 1;
+}
+
+// --- Service Definition ---
+service AuthService {
+  rpc Register(RegisterRequest) returns (RegisterResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/register"
+      body: "*"
+    };
+  }
+
+  rpc Login(LoginRequest) returns (LoginResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/login"
+      body: "*"
+    };
+  }
+
+  rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/validate"
+      body: "*"
+    };
+  }
+
+  rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/refresh"
+      body: "*"
+    };
+  }
+
+  rpc Logout(LogoutRequest) returns (LogoutResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/logout"
+      body: "*"
+    };
+  }
+}

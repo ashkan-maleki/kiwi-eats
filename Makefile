@@ -1,7 +1,7 @@
 # ---- Project Settings ----
 SERVICE_NAME ?= user-service  # Example: Set service name for builds
 PROJECT_MODULE = github.com/your-username/kiwi-eats
-PROTO_PATH = internal/proto
+PROTO_PATH = api/proto/user/auth.proto
 
 # ---- Tools ----
 PROTOC = protoc
