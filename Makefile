@@ -34,7 +34,7 @@ generate-proto: ## Generate gRPC and gateway code from .proto files
 	$(PROTOC) --go_out=. --go_opt=module=$(PROJECT_MODULE) \
 		--go-grpc_out=. --go-grpc_opt=module=$(PROJECT_MODULE) \
 		--grpc-gateway_out=. --grpc-gateway_opt=module=$(PROJECT_MODULE) \
-		-I=$(PROTO_PATH) $(PROTO_PATH)/*.proto
+		-I=$(PROTO_PATH) -I=third_party $(PROTO_PATH)/*.proto
 
 dockerize: ## Build a Docker image for the service
 	@echo "Building Docker image for $(SERVICE_NAME)..."
