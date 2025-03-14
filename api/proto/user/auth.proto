@@ -1,8 +1,8 @@
 syntax = "proto3";
-package auth;
-option go_package = "github.com/ashkan-maleki/kiwi-eats/internal/auth";
+package user;
+option go_package = "github.com/ashkan-maleki/kiwi-eats/internal/user/pb";
 
-import "third_party/google/api/annotations.proto";
+import "google/annotations.proto";
 
 // Common Messages
 message Status {

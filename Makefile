@@ -1,7 +1,7 @@
 # ---- Project Settings ----
 SERVICE_NAME ?= user-service  # Example: Set service name for builds
-PROJECT_MODULE = github.com/your-username/kiwi-eats
-PROTO_PATH = api/proto/user/auth.proto
+PROJECT_MODULE = github.com/ashkan-maleki/kiwi-eats
+PROTO_PATH = api/proto/user
 
 # ---- Tools ----
 PROTOC = protoc
@@ -29,12 +29,17 @@ test: ## Run all tests
 	@echo "Testing..."
 	go test -v ./...
 
+grpc:
+	protoc -I api/proto \
+      --go_out=internal/user/pb --go_opt=module=github.com/ashkan-maleki/kiwi-eats/internal/user/pb \
+      --go-grpc_out=internal/user/pb --go-grpc_opt=module=github.com/ashkan-maleki/kiwi-eats/internal/user/pb \
+      --grpc-gateway_out=internal/user/pb --grpc-gateway_opt=module=github.com/ashkan-maleki/kiwi-eats/internal/user/pb \
+      api/proto/user/auth.proto
+
+
 generate-proto: ## Generate gRPC and gateway code from .proto files
 	@echo "Generating protobuf code..."
-	$(PROTOC) --go_out=. --go_opt=module=$(PROJECT_MODULE) \
-		--go-grpc_out=. --go-grpc_opt=module=$(PROJECT_MODULE) \
-		--grpc-gateway_out=. --grpc-gateway_opt=module=$(PROJECT_MODULE) \
-		-I=$(PROTO_PATH) -I=third_party $(PROTO_PATH)/*.proto
+	$(PROTOC) --go_out=. --go_opt=module=$(PROJECT_MODULE) --go-grpc_out=. --go-grpc_opt=module=$(PROJECT_MODULE) --grpc-gateway_out=. --grpc-gateway_opt=module=$(PROJECT_MODULE) 	-I=$(PROTO_PATH) -I=third_party $(PROTO_PATH)/*.proto
 
 dockerize: ## Build a Docker image for the service
 	@echo "Building Docker image for $(SERVICE_NAME)..."
