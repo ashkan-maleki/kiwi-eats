@@ -11,19 +11,19 @@ import (
 	"time"
 )
 
-// AuthService implements the AuthServiceServer interface
-type AuthService struct {
+// Auth implements the AuthServiceServer interface
+type Auth struct {
 	pb.UnimplementedAuthServiceServer
 	userRepo repository.User
 }
 
-// NewAuthService creates a new AuthService instance
-func NewAuthService(userRepo repository.User) *AuthService {
-	return &AuthService{userRepo: userRepo}
+// NewAuth creates a new Auth instance
+func NewAuth(userRepo repository.User) *Auth {
+	return &Auth{userRepo: userRepo}
 }
 
 // Register handles user registration
-func (s *AuthService) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
+func (s *Auth) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
 	// Check if user already exists
 	existingUser, _ := s.userRepo.GetUserByEmail(ctx, req.Email)
 	if existingUser != nil {
@@ -52,22 +52,22 @@ func (s *AuthService) Register(ctx context.Context, req *pb.RegisterRequest) (*p
 	return &pb.RegisterResponse{UserId: userID}, nil
 }
 
-func (s *AuthService) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResponse, error) {
+func (s *Auth) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResponse, error) {
 	// TODO: Implement login logic
 	return nil, nil
 }
 
-func (s *AuthService) ValidateToken(ctx context.Context, req *pb.ValidateTokenRequest) (*pb.ValidateTokenResponse, error) {
+func (s *Auth) ValidateToken(ctx context.Context, req *pb.ValidateTokenRequest) (*pb.ValidateTokenResponse, error) {
 	// TODO: Implement token validation logic
 	return nil, nil
 }
 
-func (s *AuthService) RefreshToken(ctx context.Context, req *pb.RefreshTokenRequest) (*pb.RefreshTokenResponse, error) {
+func (s *Auth) RefreshToken(ctx context.Context, req *pb.RefreshTokenRequest) (*pb.RefreshTokenResponse, error) {
 	// TODO: Implement token refresh logic
 	return nil, nil
 }
 
-func (s *AuthService) Logout(ctx context.Context, req *pb.LogoutRequest) (*pb.LogoutResponse, error) {
+func (s *Auth) Logout(ctx context.Context, req *pb.LogoutRequest) (*pb.LogoutResponse, error) {
 	// TODO: Implement logout logic
 	return nil, nil
 }
