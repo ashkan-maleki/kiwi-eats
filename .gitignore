@@ -29,3 +29,6 @@ go.work.sum
 
 # Ignore generated protobuf output directories
 internal/*/pb
+
+# Config files for development
+config/config.dev.yaml

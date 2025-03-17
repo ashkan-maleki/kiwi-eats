@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"github.com/ashkan-maleki/kiwi-eats/internal/config"
 	"github.com/ashkan-maleki/kiwi-eats/internal/user/pb"
 	"github.com/ashkan-maleki/kiwi-eats/internal/user/service"
 	"google.golang.org/grpc"
@@ -9,6 +11,12 @@ import (
 )
 
 func main() {
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		log.Fatalf("Could not load config: %v", err)
+	}
+	fmt.Println("App Name:", cfg.AppName)
+	fmt.Println("Running on Port:", cfg.JWTSecret)
 	listener, err := net.Listen("tcp", ":50051")
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
