@@ -1,0 +1,53 @@
+package repository
+
+import (
+	"context"
+	"database/sql"
+	"time"
+)
+
+type TokenR struct {
+	db *sql.DB
+}
+
+func NewToken(db *sql.DB) *TokenR {
+	return &TokenR{db: db}
+}
+
+//CREATE TABLE token_metadata (
+//id SERIAL PRIMARY KEY,
+//user_id TEXT NOT NULL,
+//token TEXT NOT NULL UNIQUE,
+//ip_address TEXT,
+//user_agent TEXT,
+//expires_at TIMESTAMP NOT NULL
+//);
+
+func (r *TokenR) StoreTokenMetadata(ctx context.Context, userID, token, ipAddress, userAgent string, expiresAt int64) error {
+	query := `  
+		INSERT INTO token_metadata (user_id, token, ip_address, user_agent, expires_at)  
+		VALUES ($1, $2, $3, $4, $5)  
+	`
+	_, err := r.db.ExecContext(ctx, query, userID, token, ipAddress, userAgent, time.Unix(expiresAt, 0))
+	return err
+}
+
+func (r *TokenR) GetTokenMetadata(ctx context.Context, token string) (userID, ipAddress, userAgent string, expiresAt int64, err error) {
+	query := `  
+		SELECT user_id, ip_address, user_agent, expires_at  
+		FROM token_metadata  
+		WHERE token = $1  
+	`
+	var expiresAtTime time.Time
+	err = r.db.QueryRowContext(ctx, query, token).Scan(&userID, &ipAddress, &userAgent, &expiresAtTime)
+	if err != nil {
+		return "", "", "", 0, err
+	}
+	return userID, ipAddress, userAgent, expiresAtTime.Unix(), nil
+}
+
+func (r *TokenR) DeleteTokenMetadata(ctx context.Context, token string) error {
+	query := `DELETE FROM token_metadata WHERE token = $1`
+	_, err := r.db.ExecContext(ctx, query, token)
+	return err
+}
