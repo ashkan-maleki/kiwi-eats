@@ -7,6 +7,10 @@ import (
 
 type User struct{}
 
+func NewUser() *User {
+	return &User{}
+}
+
 func (u *User) GetUserByEmail(ctx context.Context, email string) (*entity.User, error) {
 	// TODO: Implement login logic
 	return nil, nil

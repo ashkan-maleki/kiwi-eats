@@ -3,7 +3,9 @@ package main
 import (
 	"fmt"
 	"github.com/ashkan-maleki/kiwi-eats/internal/config"
+	"github.com/ashkan-maleki/kiwi-eats/internal/user/handler"
 	"github.com/ashkan-maleki/kiwi-eats/internal/user/pb"
+	"github.com/ashkan-maleki/kiwi-eats/internal/user/repository"
 	"github.com/ashkan-maleki/kiwi-eats/internal/user/service"
 	"google.golang.org/grpc"
 	"log"
@@ -22,10 +24,12 @@ func main() {
 		log.Fatalf("Failed to listen: %v", err)
 	}
 
-	grpcServer := grpc.NewServer()
-	authService := &service.Auth{}
+	userRepository := repository.NewUser()
+	authService := service.NewAuth(userRepository, cfg.JWTSecret)
+	authHandler := handler.NewAuth(authService)
 
-	pb.RegisterAuthServiceServer(grpcServer, authService)
+	grpcServer := grpc.NewServer()
+	pb.RegisterAuthServiceServer(grpcServer, authHandler)
 
 	log.Println("User service is running on port 50051...")
 	if err := grpcServer.Serve(listener); err != nil {

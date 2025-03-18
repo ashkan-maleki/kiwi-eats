@@ -8,6 +8,7 @@ import (
 
 type Auth struct {
 	authService *service.Auth
+	pb.UnimplementedAuthServiceServer
 }
 
 func NewAuth(authService *service.Auth) *Auth {

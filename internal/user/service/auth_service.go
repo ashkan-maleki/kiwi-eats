@@ -13,19 +13,19 @@ import (
 
 // Auth implements the AuthServiceServer interface
 type Auth struct {
-	pb.UnimplementedAuthServiceServer
-	userRepo repository.User
+	userRepository *repository.User
+	JWTSecret      string
 }
 
 // NewAuth creates a new Auth instance
-func NewAuth(userRepo repository.User) *Auth {
-	return &Auth{userRepo: userRepo}
+func NewAuth(userRepository *repository.User, JWTSecret string) *Auth {
+	return &Auth{userRepository: userRepository, JWTSecret: JWTSecret}
 }
 
 // Register handles user registration
 func (s *Auth) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
 	// Check if user already exists
-	existingUser, _ := s.userRepo.GetUserByEmail(ctx, req.Email)
+	existingUser, _ := s.userRepository.GetUserByEmail(ctx, req.Email)
 	if existingUser != nil {
 		return nil, status.Errorf(codes.AlreadyExists, "User with email %s already exists", req.Email)
 	}
@@ -43,7 +43,7 @@ func (s *Auth) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Regis
 	}
 
 	// Save to database
-	userID, err := s.userRepo.CreateUser(ctx, user)
+	userID, err := s.userRepository.CreateUser(ctx, user)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to create user: %v", err)
 	}
