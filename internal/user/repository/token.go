@@ -6,12 +6,12 @@ import (
 	"time"
 )
 
-type TokenR struct {
+type Token struct {
 	db *sql.DB
 }
 
-func NewToken(db *sql.DB) *TokenR {
-	return &TokenR{db: db}
+func NewToken(db *sql.DB) *Token {
+	return &Token{db: db}
 }
 
 //CREATE TABLE token_metadata (
@@ -23,7 +23,7 @@ func NewToken(db *sql.DB) *TokenR {
 //expires_at TIMESTAMP NOT NULL
 //);
 
-func (r *TokenR) StoreTokenMetadata(ctx context.Context, userID, token, ipAddress, userAgent string, expiresAt int64) error {
+func (r *Token) StoreTokenMetadata(ctx context.Context, userID, token, ipAddress, userAgent string, expiresAt int64) error {
 	query := `  
 		INSERT INTO token_metadata (user_id, token, ip_address, user_agent, expires_at)  
 		VALUES ($1, $2, $3, $4, $5)  
@@ -32,7 +32,7 @@ func (r *TokenR) StoreTokenMetadata(ctx context.Context, userID, token, ipAddres
 	return err
 }
 
-func (r *TokenR) GetTokenMetadata(ctx context.Context, token string) (userID, ipAddress, userAgent string, expiresAt int64, err error) {
+func (r *Token) GetTokenMetadata(ctx context.Context, token string) (userID, ipAddress, userAgent string, expiresAt int64, err error) {
 	query := `  
 		SELECT user_id, ip_address, user_agent, expires_at  
 		FROM token_metadata  
@@ -46,7 +46,7 @@ func (r *TokenR) GetTokenMetadata(ctx context.Context, token string) (userID, ip
 	return userID, ipAddress, userAgent, expiresAtTime.Unix(), nil
 }
 
-func (r *TokenR) DeleteTokenMetadata(ctx context.Context, token string) error {
+func (r *Token) DeleteTokenMetadata(ctx context.Context, token string) error {
 	query := `DELETE FROM token_metadata WHERE token = $1`
 	_, err := r.db.ExecContext(ctx, query, token)
 	return err
