@@ -24,8 +24,11 @@ func main() {
 		log.Fatalf("Failed to listen: %v", err)
 	}
 
-	userRepository := repository.NewUser()
-	authService := service.NewAuth(userRepository, cfg.JWTSecret)
+	userRepo := repository.NewUser()
+	redisRepo := repository.NewRedis(nil) // TODO: add redis client
+	tokenRepo := repository.NewToken(nil) // TODO: add db client
+
+	authService := service.NewAuth(userRepo, redisRepo, tokenRepo, cfg.JWTSecret)
 	authHandler := handler.NewAuth(authService)
 
 	grpcServer := grpc.NewServer()

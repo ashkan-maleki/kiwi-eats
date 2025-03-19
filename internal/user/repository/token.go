@@ -14,7 +14,7 @@ func NewToken(db *sql.DB) *Token {
 	return &Token{db: db}
 }
 
-//CREATE TABLE token_metadata (
+//TODO: CREATE TABLE token_metadata (
 //id SERIAL PRIMARY KEY,
 //user_id TEXT NOT NULL,
 //token TEXT NOT NULL UNIQUE,
@@ -23,6 +23,18 @@ func NewToken(db *sql.DB) *Token {
 //expires_at TIMESTAMP NOT NULL
 //);
 
+// StoreTokenMetadata stores token metadata in the database.
+//
+// Parameters:
+//   - ctx: Context for request cancellation and timeouts.
+//   - userID: The ID of the user associated with the token.
+//   - token: The refresh token to store.
+//   - ipAddress: The IP address of the client making the request.
+//   - userAgent: The user agent of the client making the request.
+//   - expiresAt: The expiration time of the token (Unix timestamp).
+//
+// Returns:
+//   - error: An error if the operation fails.
 func (r *Token) StoreTokenMetadata(ctx context.Context, userID, token, ipAddress, userAgent string, expiresAt int64) error {
 	query := `  
 		INSERT INTO token_metadata (user_id, token, ip_address, user_agent, expires_at)  

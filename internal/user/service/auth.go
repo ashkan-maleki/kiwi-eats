@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"github.com/ashkan-maleki/kiwi-eats/internal/user/pb"
-	"github.com/ashkan-maleki/kiwi-eats/internal/user/repository"
 	"github.com/ashkan-maleki/kiwi-eats/internal/user/repository/entity"
 	"github.com/golang-jwt/jwt/v4"
 	"golang.org/x/crypto/bcrypt"
@@ -12,21 +11,52 @@ import (
 	"time"
 )
 
-// Auth implements the AuthServiceServer interface
-type Auth struct {
-	userRepo  *repository.User
-	redisRepo *repository.Redis
-	tokenRepo *repository.Token
-	JWTSecret string
-}
+type (
+	// UserRepo defines methods for user-related database operations.
+	UserRepo interface {
+		GetUserByEmail(ctx context.Context, email string) (*entity.User, error)
+		CreateUser(ctx context.Context, user *entity.User) (string, error)
+	}
+
+	// RedisRepo defines methods for Redis operations.
+	RedisRepo interface {
+		StoreRefreshToken(ctx context.Context, token, userID string, expiresAt int64) error
+	}
+
+	// TokenRepo defines methods for token metadata operations.
+	TokenRepo interface {
+		// StoreTokenMetadata stores token metadata in the database.
+		//
+		// Parameters:
+		//   - ctx: Context for request cancellation and timeouts.
+		//   - userID: The ID of the user associated with the token.
+		//   - token: The refresh token to store.
+		//   - ipAddress: The IP address of the client making the request.
+		//   - userAgent: The user agent of the client making the request.
+		//   - expiresAt: The expiration time of the token (Unix timestamp).
+		//
+		// Returns:
+		//   - error: An error if the operation fails.
+		StoreTokenMetadata(ctx context.Context, userID, token, ipAddress, userAgent string, expiresAt int64) error
+	}
+
+	// Auth implements the AuthServiceServer interface
+	Auth struct {
+		userRepo  UserRepo
+		redisRepo RedisRepo
+		tokenRepo TokenRepo
+		JWTSecret string
+	}
+)
 
 // NewAuth creates a new Auth instance
-func NewAuth(userRepo *repository.User, redisRepo *repository.Redis,
-	tokenRepo *repository.Token, JWTSecret string) *Auth {
-	return &Auth{userRepo: userRepo,
+func NewAuth(userRepo UserRepo, redisRepo RedisRepo, tokenRepo TokenRepo, JWTSecret string) *Auth {
+	return &Auth{
+		userRepo:  userRepo,
 		redisRepo: redisRepo,
 		tokenRepo: tokenRepo,
-		JWTSecret: JWTSecret}
+		JWTSecret: JWTSecret,
+	}
 }
 
 // Register handles user registration
@@ -117,6 +147,12 @@ func (s *Auth) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginRespon
 		Name:         existingUser.Email, // Todo: change email or name
 		ExpiresAt:    accessTokenExpiresAt,
 	}, nil
+}
+
+func ValidateJWT(tokenString string, secretKey string) (*jwt.Token, error) {
+	return jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		return []byte(secretKey), nil
+	})
 }
 
 func (s *Auth) ValidateToken(ctx context.Context, req *pb.ValidateTokenRequest) (*pb.ValidateTokenResponse, error) {
