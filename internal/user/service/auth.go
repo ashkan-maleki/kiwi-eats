@@ -62,7 +62,10 @@ func NewAuth(userRepo UserRepo, redisRepo RedisRepo, tokenRepo TokenRepo, JWTSec
 // Register handles user registration
 func (s *Auth) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
 	// Check if user already exists
-	existingUser, _ := s.userRepo.GetUserByEmail(ctx, req.Email)
+	existingUser, err := s.userRepo.GetUserByEmail(ctx, req.Email)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "cannot find user by email: %v", err)
+	}
 	if existingUser != nil {
 		return nil, status.Errorf(codes.AlreadyExists, "User with email %s already exists", req.Email)
 	}
@@ -75,6 +78,7 @@ func (s *Auth) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Regis
 	// Create user entity
 	user := &entity.User{
 		Email:     req.Email,
+		Name:      req.Name,
 		Password:  string(hashedPassword),
 		CreatedAt: time.Now(),
 	}
@@ -144,7 +148,7 @@ func (s *Auth) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginRespon
 		JwtToken:     accessToken,
 		RefreshToken: refreshToken,
 		UserId:       existingUser.ID,
-		Name:         existingUser.Email, // Todo: change email or name
+		Name:         existingUser.Name,
 		ExpiresAt:    accessTokenExpiresAt,
 	}, nil
 }
