@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/ashkan-maleki/kiwi-eats/internal/user/pb"
 	"github.com/ashkan-maleki/kiwi-eats/internal/user/repository/entity"
+	"github.com/ashkan-maleki/kiwi-eats/pkg/grpc"
 	"github.com/golang-jwt/jwt/v4"
 	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc/codes"
@@ -136,8 +137,7 @@ func (s *Auth) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginRespon
 	}
 
 	// Store token metadata in PostgreSQL
-	ipAddress := "192.168.1.1" // TODO: Extract from request context
-	userAgent := "Mozilla/5.0" // TODO: Extract from request context
+	ipAddress, userAgent := grpc.ExtractIPAndUserAgent(ctx)
 	err = s.tokenRepo.StoreTokenMetadata(ctx, existingUser.ID, refreshToken, ipAddress,
 		userAgent, refreshTokenExpiresAt)
 	if err != nil {
