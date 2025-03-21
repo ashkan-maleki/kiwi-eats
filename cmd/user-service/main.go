@@ -7,6 +7,8 @@ import (
 	"github.com/ashkan-maleki/kiwi-eats/internal/user/pb"
 	"github.com/ashkan-maleki/kiwi-eats/internal/user/repository"
 	"github.com/ashkan-maleki/kiwi-eats/internal/user/service"
+	"github.com/ashkan-maleki/kiwi-eats/pkg/logger"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"log"
 	"net"
@@ -17,6 +19,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("Could not load config: %v", err)
 	}
+
+	logger.Init()
+	logger.Logger.Info("Application started",
+		zap.String("version", "1.0.0"),
+	)
+
 	fmt.Println("App Name:", cfg.AppName)
 	fmt.Println("Running on Port:", cfg.JWTSecret)
 	listener, err := net.Listen("tcp", ":50051")
