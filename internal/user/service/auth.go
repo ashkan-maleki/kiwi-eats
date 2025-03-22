@@ -136,10 +136,15 @@ func (s *Auth) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginRespon
 		return nil, status.Errorf(codes.Internal, "Failed to store refresh token: %v", err)
 	}
 
-	// Store token metadata in PostgreSQL
-	ipAddress, userAgent := grpc.ExtractIPAndUserAgent(ctx)
-	err = s.tokenRepo.StoreTokenMetadata(ctx, existingUser.ID, refreshToken, ipAddress,
-		userAgent, refreshTokenExpiresAt)
+	// Extract IP address and user agent
+	md, err := grpc.Metadata(ctx, grpc.UserAgent, grpc.IP)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to get metadata: %v", err)
+	}
+
+	// Store token metadata in PostgresSQL
+	err = s.tokenRepo.StoreTokenMetadata(ctx, existingUser.ID, refreshToken, md.IpAddress(),
+		md.UserAgent(), refreshTokenExpiresAt)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to store token metadata: %v", err)
 	}
