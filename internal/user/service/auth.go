@@ -4,8 +4,11 @@ import (
 	"context"
 	"github.com/ashkan-maleki/kiwi-eats/internal/user/pb"
 	"github.com/ashkan-maleki/kiwi-eats/internal/user/repository/entity"
+	"github.com/ashkan-maleki/kiwi-eats/pkg/auth"
 	"github.com/ashkan-maleki/kiwi-eats/pkg/grpc"
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/ashkan-maleki/kiwi-eats/pkg/logger"
+	"go.uber.org/zap"
+
 	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -94,61 +97,52 @@ func (s *Auth) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Regis
 	return &pb.RegisterResponse{UserId: userID}, nil
 }
 
-func GenerateJWT(userID string, secretKey string, expiresAt int64) (string, error) {
-	claims := jwt.MapClaims{
-		"user_id": userID,
-		"exp":     expiresAt, // 24-hour expiration
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(secretKey))
-}
-
 func (s *Auth) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResponse, error) {
 	// Check if the user exists
-	existingUser, _ := s.userRepo.GetUserByEmail(ctx, req.Email)
-	if existingUser == nil {
-		return nil, status.Errorf(codes.NotFound, "User with email %s does not exists", req.Email)
+	existingUser, err := s.userRepo.GetUserByEmail(ctx, req.Email)
+	if err != nil || existingUser == nil {
+		logger.Logger.Error("User not found", zap.String("email", req.Email), zap.Error(err))
+		return nil, status.Errorf(codes.NotFound, "User with email %s does not exist", req.Email)
 	}
 
 	// Compare the stored hashed password with the provided password
-	err := bcrypt.CompareHashAndPassword([]byte(existingUser.Password), []byte(req.Password))
+	err = bcrypt.CompareHashAndPassword([]byte(existingUser.Password), []byte(req.Password))
 	if err != nil {
+		logger.Logger.Error("Password does not match", zap.String("email", req.Email))
 		return nil, status.Errorf(codes.Unauthenticated, "Provided password does not match")
 	}
 
-	// If the password matches, generate a JWT access token, living 15 minutes
-	accessTokenExpiresAt := time.Now().Add(time.Minute * 15).Unix()
-	accessToken, err := GenerateJWT(existingUser.ID, s.JWTSecret, accessTokenExpiresAt)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to generate JWT: %v", err)
-	}
+	accessTokenExpiresAt := time.Now().Add(time.Minute * 15).Unix()     // 15 minutes
+	refreshTokenExpiresAt := time.Now().Add(time.Hour * 24 * 15).Unix() // 15 days
 
-	// Generate a refresh token with a 15-day expiration
-	refreshTokenExpiresAt := time.Now().Add(time.Hour * 24 * 15).Unix() // 7 days
-	refreshToken, err := GenerateJWT(existingUser.ID, s.JWTSecret, refreshTokenExpiresAt)
+	accessToken, refreshToken, err := auth.GenerateJWT(existingUser, s.JWTSecret, accessTokenExpiresAt, refreshTokenExpiresAt)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to generate refresh token: %v", err)
+		logger.Logger.Error("Failed to generate JWT tokens", zap.Error(err))
+		return nil, status.Errorf(codes.Internal, "Failed to generate JWT: %v", err)
 	}
 
 	// Store the refresh token in Redis
 	err = s.redisRepo.StoreRefreshToken(ctx, refreshToken, existingUser.ID, refreshTokenExpiresAt)
 	if err != nil {
+		logger.Logger.Error("Failed to store refresh token in Redis", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, "Failed to store refresh token: %v", err)
 	}
 
 	// Extract IP address and user agent
 	md, err := grpc.Metadata(ctx, grpc.UserAgent, grpc.IP)
 	if err != nil {
+		logger.Logger.Error("Failed to extract metadata", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, "Failed to get metadata: %v", err)
 	}
 
-	// Store token metadata in PostgresSQL
-	err = s.tokenRepo.StoreTokenMetadata(ctx, existingUser.ID, refreshToken, md.IpAddress(),
-		md.UserAgent(), refreshTokenExpiresAt)
+	// Store token metadata in PostgreSQL
+	err = s.tokenRepo.StoreTokenMetadata(ctx, existingUser.ID, refreshToken, md.IpAddress(), md.UserAgent(), refreshTokenExpiresAt)
 	if err != nil {
+		logger.Logger.Error("Failed to store token metadata in PostgreSQL", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, "Failed to store token metadata: %v", err)
 	}
-	// Return the access token
+
+	logger.Logger.Info("User logged in successfully", zap.String("user_id", existingUser.ID))
 	return &pb.LoginResponse{
 		JwtToken:     accessToken,
 		RefreshToken: refreshToken,
@@ -158,21 +152,12 @@ func (s *Auth) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginRespon
 	}, nil
 }
 
-func ValidateJWT(tokenString string, secretKey string) (*jwt.Token, error) {
-	return jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		return []byte(secretKey), nil
-	})
-}
-
 func (s *Auth) ValidateToken(ctx context.Context, req *pb.ValidateTokenRequest) (*pb.ValidateTokenResponse, error) {
-	//Extract the JWT token from the request
-	//Verify the token signature using the JWT secret key
-	//Check if the token is expired
-	//Extract user ID from token claims
-	//Return success if valid, or an error if the token is invalid
-
-	// TODO: Implement token validation logic
-	return nil, nil
+	if err := auth.ValidateJWTToken(ctx, req.Token, s.JWTSecret); err != nil {
+		logger.Logger.Error("Failed to validate JWT token", zap.Error(err))
+		return nil, status.Errorf(codes.Unauthenticated, "failed to authorize: %v", err)
+	}
+	return &pb.ValidateTokenResponse{IsValid: true}, nil
 }
 
 func (s *Auth) RefreshToken(ctx context.Context, req *pb.RefreshTokenRequest) (*pb.RefreshTokenResponse, error) {
