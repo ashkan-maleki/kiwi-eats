@@ -3,15 +3,14 @@ package handler
 import (
 	"context"
 	"github.com/ashkan-maleki/kiwi-eats/internal/user/pb"
-	"github.com/ashkan-maleki/kiwi-eats/internal/user/service"
 )
 
 type Auth struct {
-	authService *service.Auth
+	authService *domain.Auth
 	pb.UnimplementedAuthServiceServer
 }
 
-func NewAuth(authService *service.Auth) *Auth {
+func NewAuth(authService *domain.Auth) *Auth {
 	return &Auth{authService: authService}
 }
 

@@ -1,4 +1,4 @@
-package service
+package domain
 
 import (
 	"context"
@@ -16,33 +16,6 @@ import (
 )
 
 type (
-	// UserRepo defines methods for user-related database operations.
-	UserRepo interface {
-		GetUserByEmail(ctx context.Context, email string) (*entity.User, error)
-		CreateUser(ctx context.Context, user *entity.User) (string, error)
-	}
-
-	// RedisRepo defines methods for Redis operations.
-	RedisRepo interface {
-		StoreRefreshToken(ctx context.Context, token, userID string, expiresAt int64) error
-	}
-
-	// TokenRepo defines methods for token metadata operations.
-	TokenRepo interface {
-		// StoreTokenMetadata stores token metadata in the database.
-		//
-		// Parameters:
-		//   - ctx: Context for request cancellation and timeouts.
-		//   - userID: The ID of the user associated with the token.
-		//   - token: The refresh token to store.
-		//   - ipAddress: The IP address of the client making the request.
-		//   - userAgent: The user agent of the client making the request.
-		//   - expiresAt: The expiration time of the token (Unix timestamp).
-		//
-		// Returns:
-		//   - error: An error if the operation fails.
-		StoreTokenMetadata(ctx context.Context, userID, token, ipAddress, userAgent string, expiresAt int64) error
-	}
 
 	// Auth implements the AuthServiceServer interface
 	Auth struct {
@@ -101,48 +74,48 @@ func (s *Auth) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginRespon
 	// Check if the user exists
 	existingUser, err := s.userRepo.GetUserByEmail(ctx, req.Email)
 	if err != nil || existingUser == nil {
-		logger.Logger.Error("User not found", zap.String("email", req.Email), zap.Error(err))
+		logger.Logger2.Error("User not found", zap.String("email", req.Email), zap.Error(err))
 		return nil, status.Errorf(codes.NotFound, "User with email %s does not exist", req.Email)
 	}
 
 	// Compare the stored hashed password with the provided password
 	err = bcrypt.CompareHashAndPassword([]byte(existingUser.Password), []byte(req.Password))
 	if err != nil {
-		logger.Logger.Error("Password does not match", zap.String("email", req.Email))
+		logger.Logger2.Error("Password does not match", zap.String("email", req.Email))
 		return nil, status.Errorf(codes.Unauthenticated, "Provided password does not match")
 	}
 
 	accessTokenExpiresAt := time.Now().Add(time.Minute * 15).Unix()     // 15 minutes
 	refreshTokenExpiresAt := time.Now().Add(time.Hour * 24 * 15).Unix() // 15 days
 
-	accessToken, refreshToken, err := auth.GenerateJWT(existingUser, s.JWTSecret, accessTokenExpiresAt, refreshTokenExpiresAt)
+	accessToken, refreshToken, err := auth.GenerateJWT(existingUser.ID, s.JWTSecret, accessTokenExpiresAt, refreshTokenExpiresAt)
 	if err != nil {
-		logger.Logger.Error("Failed to generate JWT tokens", zap.Error(err))
+		logger.Logger2.Error("Failed to generate JWT tokens", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, "Failed to generate JWT: %v", err)
 	}
 
 	// Store the refresh token in Redis
 	err = s.redisRepo.StoreRefreshToken(ctx, refreshToken, existingUser.ID, refreshTokenExpiresAt)
 	if err != nil {
-		logger.Logger.Error("Failed to store refresh token in Redis", zap.Error(err))
+		logger.Logger2.Error("Failed to store refresh token in Redis", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, "Failed to store refresh token: %v", err)
 	}
 
 	// Extract IP address and user agent
 	md, err := grpc.Metadata(ctx, grpc.UserAgent, grpc.IP)
 	if err != nil {
-		logger.Logger.Error("Failed to extract metadata", zap.Error(err))
+		logger.Logger2.Error("Failed to extract metadata", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, "Failed to get metadata: %v", err)
 	}
 
 	// Store token metadata in PostgreSQL
 	err = s.tokenRepo.StoreTokenMetadata(ctx, existingUser.ID, refreshToken, md.IpAddress(), md.UserAgent(), refreshTokenExpiresAt)
 	if err != nil {
-		logger.Logger.Error("Failed to store token metadata in PostgreSQL", zap.Error(err))
+		logger.Logger2.Error("Failed to store token metadata in PostgreSQL", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, "Failed to store token metadata: %v", err)
 	}
 
-	logger.Logger.Info("User logged in successfully", zap.String("user_id", existingUser.ID))
+	logger.Logger2.Info("User logged in successfully", zap.String("user_id", existingUser.ID))
 	return &pb.LoginResponse{
 		JwtToken:     accessToken,
 		RefreshToken: refreshToken,
@@ -154,7 +127,7 @@ func (s *Auth) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginRespon
 
 func (s *Auth) ValidateToken(ctx context.Context, req *pb.ValidateTokenRequest) (*pb.ValidateTokenResponse, error) {
 	if err := auth.ValidateJWTToken(ctx, req.Token, s.JWTSecret); err != nil {
-		logger.Logger.Error("Failed to validate JWT token", zap.Error(err))
+		logger.Logger2.Error("Failed to validate JWT token", zap.Error(err))
 		return nil, status.Errorf(codes.Unauthenticated, "failed to authorize: %v", err)
 	}
 	return &pb.ValidateTokenResponse{IsValid: true}, nil

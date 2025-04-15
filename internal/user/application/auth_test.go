@@ -1,13 +1,15 @@
-package service
+package domain
 
 import (
 	"context"
 	"github.com/ashkan-maleki/kiwi-eats/internal/user/pb"
 	"github.com/ashkan-maleki/kiwi-eats/internal/user/repository/entity"
+	"github.com/ashkan-maleki/kiwi-eats/pkg/auth"
 	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -146,6 +148,47 @@ func TestAuthService_Register(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				assert.Equal(t, tt.registeredUserID, resp.UserId)
+			}
+		})
+	}
+}
+
+func TestAuthService_ValidateToken(t *testing.T) {
+	secretKey := "secret"
+	hourLater := time.Now().Add(time.Hour).Unix()
+	hourBefore := time.Now().Add(-time.Hour).Unix()
+	validToken, _, _ := auth.GenerateJWT("123", secretKey, hourLater, hourLater)
+	expiredToken, _, _ := auth.GenerateJWT("123", secretKey, hourBefore, hourBefore)
+
+	tests := []struct {
+		name        string
+		token       string
+		expectError bool
+	}{
+		{
+			name:        "Valid token",
+			token:       validToken,
+			expectError: false,
+		},
+		{
+			name:        "Invalid token",
+			token:       "invalid.token.here",
+			expectError: true,
+		},
+		{
+			name:        "Expired token",
+			token:       expiredToken,
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := auth.ValidateJWTToken(context.Background(), tt.token, secretKey)
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
 			}
 		})
 	}
