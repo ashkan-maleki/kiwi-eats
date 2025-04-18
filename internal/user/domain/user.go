@@ -47,6 +47,7 @@ func NewUser(ID string, email string, name string, password string,
 }
 
 func (u *User) Login(password string, comparePasswordFunc CompareHashAndPasswordFunc) error {
+	// Compare the stored hashed password with the provided password
 	err := comparePasswordFunc(u.HashedPassword, []byte(password))
 	if err != nil {
 		return errors.Join(ErrInvalidPassword, err)
