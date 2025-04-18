@@ -2,8 +2,8 @@ package domain
 
 import (
 	"context"
+	"github.com/ashkan-maleki/kiwi-eats/internal/user/domain"
 	"github.com/ashkan-maleki/kiwi-eats/internal/user/pb"
-	"github.com/ashkan-maleki/kiwi-eats/internal/user/repository/entity"
 	"github.com/ashkan-maleki/kiwi-eats/pkg/auth"
 	"github.com/ashkan-maleki/kiwi-eats/pkg/grpc"
 	"github.com/ashkan-maleki/kiwi-eats/pkg/logger"
@@ -47,17 +47,13 @@ func (s *Auth) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Regis
 		return nil, status.Errorf(codes.AlreadyExists, "User with email %s already exists", req.Email)
 	}
 
-	// Hash the password
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	// Create a new user with a hashed password
+	user, err := domain.NewUser("", req.Email, req.Name, req.Password,
+		nil, func(password []byte) ([]byte, error) {
+			return bcrypt.GenerateFromPassword(password, bcrypt.DefaultCost)
+		})
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to hash password: %v", err)
-	}
-	// Create user entity
-	user := &entity.User{
-		Email:     req.Email,
-		Name:      req.Name,
-		Password:  string(hashedPassword),
-		CreatedAt: time.Now(),
+		return nil, status.Errorf(codes.Internal, "Failed to hash password or login: %v", err)
 	}
 
 	// Save to database
@@ -74,14 +70,11 @@ func (s *Auth) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginRespon
 	// Check if the user exists
 	existingUser, err := s.userRepo.GetUserByEmail(ctx, req.Email)
 	if err != nil || existingUser == nil {
-		logger.Logger2.Error("User not found", zap.String("email", req.Email), zap.Error(err))
 		return nil, status.Errorf(codes.NotFound, "User with email %s does not exist", req.Email)
 	}
 
-	// Compare the stored hashed password with the provided password
-	err = bcrypt.CompareHashAndPassword([]byte(existingUser.Password), []byte(req.Password))
+	err = existingUser.Login(req.Password, bcrypt.CompareHashAndPassword)
 	if err != nil {
-		logger.Logger2.Error("Password does not match", zap.String("email", req.Email))
 		return nil, status.Errorf(codes.Unauthenticated, "Provided password does not match")
 	}
 
@@ -90,28 +83,24 @@ func (s *Auth) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginRespon
 
 	accessToken, refreshToken, err := auth.GenerateJWT(existingUser.ID, s.JWTSecret, accessTokenExpiresAt, refreshTokenExpiresAt)
 	if err != nil {
-		logger.Logger2.Error("Failed to generate JWT tokens", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, "Failed to generate JWT: %v", err)
 	}
 
 	// Store the refresh token in Redis
 	err = s.redisRepo.StoreRefreshToken(ctx, refreshToken, existingUser.ID, refreshTokenExpiresAt)
 	if err != nil {
-		logger.Logger2.Error("Failed to store refresh token in Redis", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, "Failed to store refresh token: %v", err)
 	}
 
 	// Extract IP address and user agent
 	md, err := grpc.Metadata(ctx, grpc.UserAgent, grpc.IP)
 	if err != nil {
-		logger.Logger2.Error("Failed to extract metadata", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, "Failed to get metadata: %v", err)
 	}
 
 	// Store token metadata in PostgreSQL
 	err = s.tokenRepo.StoreTokenMetadata(ctx, existingUser.ID, refreshToken, md.IpAddress(), md.UserAgent(), refreshTokenExpiresAt)
 	if err != nil {
-		logger.Logger2.Error("Failed to store token metadata in PostgreSQL", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, "Failed to store token metadata: %v", err)
 	}
 

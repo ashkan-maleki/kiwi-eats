@@ -2,14 +2,14 @@ package domain
 
 import (
 	"context"
-	"github.com/ashkan-maleki/kiwi-eats/internal/user/repository/entity"
+	"github.com/ashkan-maleki/kiwi-eats/internal/user/domain"
 )
 
 type (
 	// UserRepo defines methods for user-related database operations.
 	UserRepo interface {
-		GetUserByEmail(ctx context.Context, email string) (*entity.User, error)
-		CreateUser(ctx context.Context, user *entity.User) (string, error)
+		GetUserByEmail(ctx context.Context, email string) (*domain.User, error)
+		CreateUser(ctx context.Context, user *domain.User) (string, error)
 	}
 
 	// RedisRepo defines methods for Redis operations.
