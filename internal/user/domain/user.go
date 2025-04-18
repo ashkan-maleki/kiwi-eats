@@ -20,15 +20,16 @@ type User struct {
 
 var (
 	ErrInvalidEmailFormat = errors.New("invalid email format")
+	ErrInvalidPassword    = errors.New("invalid password")
 )
 
 type EmailValidationFunc func(string) error
 type GenerateHashFromPasswordFunc func(password []byte) ([]byte, error)
+type CompareHashAndPasswordFunc func(hashedPassword, password []byte) error
 
 func NewUser(ID string, email string, name string, password string,
 	emailValidationFunc EmailValidationFunc,
-	passwordFunc GenerateHashFromPasswordFunc,
-	cost int) (*User, error) {
+	passwordFunc GenerateHashFromPasswordFunc) (*User, error) {
 	if err := emailValidationFunc(email); err != nil {
 		return nil, errors.Join(ErrInvalidEmailFormat, err)
 	}
@@ -36,5 +37,20 @@ func NewUser(ID string, email string, name string, password string,
 	if err != nil {
 		return nil, err
 	}
-	return &User{ID: ID, Email: email, Name: name, HashedPassword: hashedPassword}, nil
+	return &User{
+		ID:             ID,
+		Email:          email,
+		Name:           name,
+		HashedPassword: hashedPassword,
+		CreatedAt:      time.Now(),
+	}, nil
+}
+
+func (u *User) Login(password string, comparePasswordFunc CompareHashAndPasswordFunc) error {
+	err := comparePasswordFunc(u.HashedPassword, []byte(password))
+	if err != nil {
+		return errors.Join(ErrInvalidPassword, err)
+	}
+	u.LastLoginAt = time.Now()
+	return nil
 }
